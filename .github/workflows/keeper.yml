@@ -1,0 +1,71 @@
+# Pixflow keeper — runs the canonical-registry keeper on GitHub Actions.
+#
+# Free for public repos (no server to maintain, no card). The schedule runs
+# one keeper pass every 15 minutes: resolve symbols, propose canonical
+# tokens, execute proposals whose 1h timelock has expired.
+#
+# REQUIRED SECRET (repo Settings → Secrets → Actions):
+#   KEEPER_PRIVATE_KEY — the keeper wallet's private key (0x...). The keeper
+#   wallet must OWN the CanonicalRegistry (transferOwnership, two-step) and
+#   hold a little ETH for gas. NEVER commit a key to the repo.
+#
+# FIRST RUN: trigger manually (Actions → Pixflow keeper → Run workflow) with
+# dry_run ON (default) and check the log plans the right actions with zero
+# transactions. Only then let the schedule run live.
+#
+# MAINNET: chain 4663, registry 0x37c8c967a32df1bc60a3244f29c187e385556ad3,
+# router 0x7969f053107039b7f7ddf8446cd6c8b841c2faf9. The keeper refuses
+# mainnet unless KEEPER_ALLOW_MAINNET=1 (set below, deliberately).
+
+name: Pixflow keeper
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # every 15 minutes
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (plan actions, send no transactions)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pixflow-keeper
+  cancel-in-progress: false
+
+jobs:
+  keeper:
+    runs-on: ubuntu-latest
+    env:
+      KEEPER_CHAIN_ID: '4663'
+      KEEPER_ALLOW_MAINNET: '1'
+      KEEPER_RPC_URL: https://robinhood-rpc.publicnode.com
+      KEEPER_REGISTRY: 0x37c8c967a32df1bc60a3244f29c187e385556ad3
+      KEEPER_SYMBOLS: DCTY,MEOW
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run compile:contracts
+      - name: Keeper pass (dry run)
+        if: inputs.dry_run == true
+        run: npm run keeper -- --once --dry-run
+      - name: Keeper pass (live)
+        if: inputs.dry_run != true
+        run: npm run keeper -- --once
+        env:
+          KEEPER_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+      - name: Upload evidence bundles
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: keeper-evidence-${{ github.run_id }}
+          path: data/evidence
+          retention-days: 30
+          if-no-files-found: ignore
