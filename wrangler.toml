@@ -1,0 +1,10 @@
+# Pixflow preview deploy (testnet site, static assets only).
+# Deployed to Ivan's Cloudflare account on workers.dev — $0, no custom domain.
+# Deploy: cd ~/workspace/rycore && python3 ~/workspace/custom-connectors/custom.cloudflare/bin/cf-env.py npx wrangler deploy --config ~/workspace/verified-buy-router/wrangler.toml
+name = "pixflow-preview"
+account_id = "6ba545fcc60b79e569c834bc6253e0c1"
+compatibility_date = "2026-11-19"
+workers_dev = true
+
+[assets]
+directory = "./site"

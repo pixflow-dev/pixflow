@@ -12,7 +12,28 @@ and pixflow.xyz available (NXDOMAIN).
 
 **Working name (Fase 1 only): Verified Buy Router.**
 **Short name in code: VBR.**
-**Logo: none yet — still awaited from Ivan.**
+**Logo: received from Ivan 19 Nov 2026 ~11:52 WIB — white pixelated
+right-arrow on deep navy bg (~#031045), 1254x1254, saved as-is at
+`assets/pixflow-logo.png` (JPEG bytes despite the .png extension, same
+as Specta's logo). Use as-is — never redraw, recolor, or upscale-crop.**
+
+## Palette (decided 19 Nov 2026 ~11:52 WIB)
+
+Ivan sent the logo and asked qyu to judge the color combination and
+change it if not good. Verdict: the white-on-navy (#031045) combination
+is GOOD — high contrast, clean, premium, right for a verification
+product. The logo colors were NOT changed.
+
+- **Base:** navy `#031045` + white (from the logo).
+- **Accent:** electric cyan `#22D3EE`, used sparingly — CTAs,
+  "verified/canonical" states, glows, flow lines. The cyan keeps the
+  site from feeling flat and from looking like RYCORE (also navy +
+  white).
+- **Never use:** Specta's mint green or gold — those belong to Specta.
+- **Motif:** pixel-grid / pixel-flow (pixels assembling, flowing,
+  resolving into the arrow) — fits the pixel-arrow logo better than
+  generic particles. Do NOT reuse particle-network + blobs
+  (Specta/RYCORE already used that).
 
 Deliberate: the contract keeps its descriptive name
 `VerifiedBuyRouter` (and the code keeps `VBR`) — renaming it would
@@ -20,9 +41,10 @@ invalidate the Fase 1 verification and the audit PoC copies
 (byte-identical, sha256-checked in AUDIT-POC.md). Only the
 project-facing identity (docs, package name) carries Pixflow.
 
-When the logo arrives, the swap is mechanical — the name appears ONLY
-in the places listed below (no name is baked into contract behaviour,
-storage layout, or selectors; renaming is a text change + recompile).
+The logo has arrived (19 Nov ~11:52 WIB) and the swap was mechanical —
+the name appears ONLY in the places listed below (no name is baked into
+contract behaviour, storage layout, or selectors; renaming is a text
+change + recompile).
 
 ## Where the working name appears
 
@@ -44,7 +66,8 @@ storage layout, or selectors; renaming is a text change + recompile).
 - `CanonicalRegistry` contract name (generic, no brand in it).
 - Function names, events, errors, storage layout, selectors.
 - The fee model, the timelock, the resolver rules.
-- Any deployed address (nothing is deployed yet in Fase 1).
+- Any deployed address (testnet deploy exists since Fase 2 — see README;
+  nothing on mainnet).
 
 ## Rules for the rebrand (from Ivan's standing rules)
 

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixflow — Buy the real token. Or buy nothing.</title>
+<meta name="description" content="Pixflow is a verified buy router for Pons on Robinhood Chain. It checks canonical token, wash trading, snipe-tax window and dev dump before executing — or reverts with a clear reason. 0.3% fee only on executed buys.">
+<link rel="icon" href="assets/pixflow-logo.png">
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<div class="page">
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <img src="assets/pixflow-logo.png" alt="Pixflow logo">
+      <span class="brand-name">PIX<span class="flow">FLOW</span></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#waves">Live waves</a>
+      <a href="#proof">Proof</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-primary btn-small" href="console.html">Console →</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <canvas id="pixel-canvas" aria-hidden="true"></canvas>
+    <div class="hero-inner">
+      <div class="eyebrow"><span class="dot"></span> Verified Buy Router · Pons · Robinhood Chain</div>
+      <h1>Buy the real token.<br><span class="cyan">Or buy nothing.</span></h1>
+      <p class="sub">Every narrative wave on Pons spawns a flock of clones, and Pons shows them all equally. Pixflow checks <b>before</b> it buys — canonical token, wash trading, snipe-tax window, dev dump — and executes on the curve only if every check passes. Otherwise it reverts with a clear reason, and your ETH never leaves your wallet.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="console.html">Open the console →</a>
+        <a class="btn btn-ghost" href="#waves">See the clone waves</a>
+      </div>
+      <div class="chips">
+        <span class="chip hot"><b>332</b> buys into dead DCTY clones</span>
+        <span class="chip hot"><b>891</b> buys into 8 MEOW clones, no winner</span>
+        <span class="chip"><b>113/113</b> tests passing</span>
+        <span class="chip"><b>0.3%</b> fee — only on executed buys</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE CLONE WAVES -->
+  <section class="block" id="waves">
+    <div class="sec-head">
+      <p class="sec-kicker">Live clone waves</p>
+      <h2>The clones are already eating buys.</h2>
+      <p>These are real cohorts, counted exactly from the Pons API on <b>19 Nov 2026</b>. The keeper resolves each symbol to one canonical token — or marks it contested and refuses to guess. Clone pixels dissolve; the canonical one locks in.</p>
+    </div>
+    <div class="waves-grid" id="waves-feed">
+      <div class="feed-loading">Loading the wave feed…</div>
+    </div>
+    <p class="feed-note">Feed snapshot <span id="snapshot-date">19 Nov 2026</span> — live keeper feed coming with the keeper service. Counts grow as the waves continue; the snapshot above is frozen at capture time.</p>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="block" id="how">
+    <div class="sec-head">
+      <p class="sec-kicker">How it works</p>
+      <h2>Four checks. One transaction. Zero guessing.</h2>
+      <p>The router never decides what is real by itself — that is not computable on-chain. A keeper resolves off-chain from on-chain facts, the registry publishes the verdict, and the router enforces it.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Keeper resolves</h3>
+        <p>An off-chain resolver watches Pons launches and resolves each symbol to its canonical token from on-chain facts only: earliest launch, progress dominance, socials match, graduation status.</p>
+        <p class="risk"><b>What can go wrong:</b> the resolver can be slow — a verdict that arrives after buyers already bought the clone protects no one. Speed is the product's hardest problem.</p>
+        <span class="step-arrow">→</span>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Registry publishes</h3>
+        <p>The verdict goes on-chain in the Canonical Registry. Fail-open changes wait a 1-hour timelock, in full public view; defensive flags — contest, wash, dev-dump — take effect immediately.</p>
+        <p class="risk"><b>What can go wrong:</b> the registry is a trust point. A compromised keeper key can re-point a symbol after 1h. The timelock buys time to react; it is not a veto.</p>
+        <span class="step-arrow">→</span>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Router verifies</h3>
+        <p>On every buy the router checks: the curve comes from the Pons factory registry (never from the caller), the token is the registered canonical for its own symbol, no flags are set, the curve is open, and the snipe-tax window has passed.</p>
+        <p class="risk"><b>What can go wrong:</b> nothing moves here — if any check fails, the transaction reverts with a specific reason (<code>NotCanonical</code>, <code>TaxWindow</code>, …) and no fee accrues.</p>
+        <span class="step-arrow">→</span>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>Buy executes — or reverts</h3>
+        <p>All checks pass: the buy executes on the curve in the same transaction. Tokens go straight to the buyer, unspent ETH is refunded in the same transaction, and the 0.3% fee accrues only on the executed buy.</p>
+        <p class="risk"><b>What can go wrong:</b> on a capped buy (you send more than the remaining allocation) the fee is still 0.3% of the full amount sent — even though the excess is refunded.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROOF -->
+  <section class="block" id="proof">
+    <div class="sec-head">
+      <p class="sec-kicker">Proof</p>
+      <h2>Every executed buy is shareable proof.</h2>
+      <p>No screenshots of vibes. Each verified buy is one on-chain transaction with a receipt anyone can check — buyer, token, ETH spent, tokens received, fee.</p>
+    </div>
+    <div class="proof-stats">
+      <div class="proof-stat"><b>113 / 113</b><span>tests passing — 63 contracts (ethereumjs VM) + 50 keeper resolver</span></div>
+      <div class="proof-stat"><b>7 / 7</b><span>Foundry audit PoCs — fake-curve rejection, registry poisoning, balance-delta defense</span></div>
+      <div class="proof-stat"><b>0 critical</b><span>0 Critical / 0 High findings in the Fase 1 audit pass</span></div>
+    </div>
+    <div class="proof-card">
+      <div class="empty-title">First verified buy — Robinhood testnet, 19 Nov 2026 <span class="badge badge-canonical">VERIFIED</span></div>
+      <p>The keeper resolved TPIX as canonical, the registry update cleared its 1-hour timelock, and the router executed the buy on testnet — fee exactly 0.3%, refund 0. Every field below is one on-chain transaction anyone can check.</p>
+      <div class="proof-fields">
+        <div class="proof-field"><span>Buyer</span><b title="0x41d07B7D4D697c9961335c37b71833E84742C0a7">0x41d07B…42C0a7</b></div>
+        <div class="proof-field"><span>Token</span><b title="0x525205296f9357ddaec95f4834d82d22756da9b9">TPIX · 0x525205…a9b9</b></div>
+        <div class="proof-field"><span>ETH spent</span><b>0.00004985 ETH</b></div>
+        <div class="proof-field"><span>Tokens received</span><b>28,781.61 TPIX</b></div>
+        <div class="proof-field"><span>Pixflow fee (0.3%)</span><b>0.00000015 ETH — exact</b></div>
+        <div class="proof-field"><span>Transaction</span><b><a href="https://explorer.testnet.chain.robinhood.com/tx/0x73b7b82955ade76fc397c5fbb93e20ea02b88038d6675f602258a296c7e0a0c8" target="_blank" rel="noopener">0x73b7b829…0a0c8 ↗</a></b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HONEST CAVEATS -->
+  <section class="block" id="caveats">
+    <div class="sec-head">
+      <p class="sec-kicker">Honest caveats</p>
+      <h2>What Pixflow does not do.</h2>
+      <p>A verification router that hides its limits is just another clone. These are stated in the README, and they stay stated here.</p>
+    </div>
+    <div class="caveats">
+      <div class="caveat">
+        <h3>The registry is a trust point</h3>
+        <p>The keeper decides which token is canonical. A compromised keeper key <b>can</b> re-point a symbol at a clone — after a 1h timelock, in full public view, and any defensive flag raised in that hour cancels the proposal. Production ownership should be a multisig.</p>
+      </div>
+      <div class="caveat">
+        <h3>"Real" is not "good"</h3>
+        <p>The router answers <b>"is this the real DCTY?"</b>, not "is DCTY a good buy?". The canonical token can still dump after graduation — graduates do, routinely.</p>
+      </div>
+      <div class="caveat">
+        <h3>Capped buys still pay the full fee</h3>
+        <p>If you send more ETH than the remaining sellable allocation, the router buys the whole allocation and refunds the rest in the same transaction — but the <b>0.3% fee is charged on the full amount you sent</b>.</p>
+      </div>
+      <div class="caveat">
+        <h3>v1 limits</h3>
+        <p>Native-ETH quotes only — no ERC-20-quoted curves (USDG, NVDA). <b>minTokensOut is a strict quantity bound</b>: the router fails closed where the curve would partially fill at the same price.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="foot-inner">
+    <div>
+      <strong>PIXFLOW</strong> — buy the real token, or buy nothing.<br>
+      <span class="foot-note">Open source (MIT). No token at launch. Testnet first; mainnet only when explicitly enabled.</span>
+    </div>
+    <div>
+      <strong>Code</strong><br>
+      <a href="https://github.com/pixflow-dev/pixflow" target="_blank" rel="noopener">GitHub — pixflow-dev ↗</a><br>
+      <span class="foot-note">Repo push pending — the public repo is not live yet.</span>
+    </div>
+    <div>
+      <strong>Contracts</strong><br>
+      <span class="foot-note">VerifiedBuyRouter + CanonicalRegistry — live on Robinhood testnet (46630). Router 0xbbff…1bd6 · Registry 0xce11…dd7 · full addresses in the <a href="console.html">console</a>.</span>
+    </div>
+  </div>
+</footer>
+</div>
+<script src="app.js?v=1"></script>
+</body>
+</html>

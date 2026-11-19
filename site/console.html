@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixflow Console — Testnet</title>
+<meta name="description" content="Pixflow console: buy the real Pons token through the Verified Buy Router, or revert with a clear reason. Robinhood Chain testnet (46630).">
+<link rel="icon" href="assets/pixflow-logo.png">
+<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="console.css?v=1">
+</head>
+<body>
+<div class="page">
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <img src="assets/pixflow-logo.png" alt="Pixflow logo">
+      <span class="brand-name">PIX<span class="flow">FLOW</span></span>
+    </a>
+    <nav class="nav-links">
+      <a href="index.html#how">How it works</a>
+      <a href="index.html#waves">Live waves</a>
+      <a href="index.html#proof">Proof</a>
+    </nav>
+    <div class="nav-right">
+      <span class="badge-testnet">TESTNET 46630</span>
+      <a class="btn btn-ghost btn-small" href="index.html">← Landing</a>
+    </div>
+  </div>
+</header>
+
+<main class="console-wrap">
+  <div class="console-head">
+    <div>
+      <h1>Console</h1>
+      <p>Buy through the Verified Buy Router. The pre-flight below runs the router's own checks read-only <b>before</b> you sign anything — if a check fails, you see the exact revert reason and no transaction is sent.</p>
+    </div>
+  </div>
+
+  <!-- DEPLOY STATUS — visible until the testnet addresses are filled in (console.src.js CONFIG) -->
+  <div class="banner deploy show" id="deploy-banner">
+    <b>Testnet contracts not deployed yet.</b> The router + registry addresses are still placeholders in the console config — the testnet deploy is in progress. Wallet connection works, but pre-flight and buys are disabled until the deploy lands.
+  </div>
+
+  <!-- WALLET -->
+  <div class="wallet-bar">
+    <div class="wallet-status" id="wallet-status">Wallet not connected.</div>
+    <button class="btn btn-primary btn-small" id="btn-connect">Connect Wallet</button>
+    <button class="btn btn-ghost btn-small" id="btn-switch" style="display:none">Switch to Testnet 46630</button>
+  </div>
+  <div class="wallet-bar" id="fees-bar" style="display:none">
+    <div class="wallet-status">Unclaimed Pixflow fees for your wallet: <b id="fees-owed">—</b> <span style="color:var(--muted)">(0.3% of executed buys accrues here — pull-based, claim anytime.)</span></div>
+    <button class="btn btn-primary btn-small" id="btn-claim-fees">Claim fees</button>
+  </div>
+  <div class="banner err" id="banner-err"></div>
+  <div class="banner warn" id="banner-warn"></div>
+  <div class="banner info" id="banner-info"></div>
+
+  <div class="grid2">
+    <!-- BUY FORM -->
+    <div class="panel">
+      <h2>Buy verified</h2>
+      <p class="panel-sub">Buy by token address or by symbol — the registry resolves the symbol to its canonical token. Tokens go straight to your wallet; unspent ETH is refunded in the same transaction.</p>
+      <div class="field">
+        <label>Buy by</label>
+        <div class="seg" id="mode-seg">
+          <button type="button" data-mode="address" class="active">Token address</button>
+          <button type="button" data-mode="symbol">Symbol</button>
+        </div>
+      </div>
+      <div class="field">
+        <label id="target-label">Token address</label>
+        <input type="text" id="buy-target" placeholder="0x…" spellcheck="false" autocomplete="off">
+        <div class="hint" id="target-hint">The token you want to buy. The router verifies it is the registered canonical token for its own on-chain symbol.</div>
+      </div>
+      <div class="field">
+        <label>ETH to spend</label>
+        <div class="input-row">
+          <input type="text" id="buy-eth" value="0.01" inputmode="decimal" placeholder="0.01">
+          <span class="unit">ETH</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Minimum tokens out <span class="hint">(strict quantity bound — the buy reverts if you receive less)</span></label>
+        <div class="input-row">
+          <input type="text" id="buy-min" value="0" inputmode="decimal" placeholder="0">
+          <button class="btn btn-ghost btn-small" id="btn-min-quote" title="Set to the current quote minus 1%">Quote −1%</button>
+        </div>
+      </div>
+      <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost" id="btn-preflight" style="flex:1">Run pre-flight</button>
+        <button class="btn btn-primary" id="btn-buy" style="flex:1" disabled>Buy verified</button>
+      </div>
+      <div class="result" id="buy-result" style="display:none"></div>
+      <p class="panel-sub" style="margin-top:14px">Need testnet ETH? Get free testnet ETH at <a href="https://faucet.testnet.chain.robinhood.com/" target="_blank" rel="noopener">the faucet ↗</a>.</p>
+    </div>
+
+    <!-- PRE-FLIGHT -->
+    <div class="panel">
+      <h2>Pre-flight</h2>
+      <p class="panel-sub">Read-only checks, in the same order the router enforces them on-chain. Nothing here sends a transaction.</p>
+      <div class="kv" id="pf-kv">
+        <div><span>Token</span><b id="pf-token">—</b></div>
+        <div><span>Registry status</span><b id="pf-registry">—</b></div>
+        <div><span>Wash suspect</span><b id="pf-wash">—</b></div>
+        <div><span>Dev dumped</span><b id="pf-dev">—</b></div>
+        <div><span>Curve</span><b id="pf-curve">—</b></div>
+        <div><span>Quote</span><b id="pf-quote">—</b></div>
+        <div><span>Snipe-tax window</span><b id="pf-tax">—</b></div>
+        <div><span>Estimated tokens out</span><b id="pf-out">—</b></div>
+        <div><span>Pixflow fee (0.3%)</span><b id="pf-fee">—</b></div>
+        <div><span>Spend cap</span><b id="pf-cap">—</b></div>
+      </div>
+      <div class="verdict" id="pf-verdict">
+        <span class="verdict-dot idle"></span>
+        <span id="pf-verdict-text">Pre-flight not run yet.</span>
+      </div>
+      <div class="kv" style="margin-top:14px">
+        <div><span>Router</span><b id="pf-router-addr">not deployed</b></div>
+        <div><span>Registry</span><b id="pf-registry-addr">not deployed</b></div>
+        <div><span>Factory (testnet stub)</span><b id="pf-factory-addr">not deployed</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HONEST WARNINGS -->
+  <div class="grid1">
+    <div class="limits">
+      <h3>Know the limits</h3>
+      <ul>
+        <li><strong>Testnet only.</strong> This console talks to Robinhood Chain testnet (46630). Mainnet is refused until explicitly enabled — even if your wallet is on mainnet, the console will not send anything there.</li>
+        <li><strong>The registry is a trust point.</strong> The keeper decides which token is canonical. A compromised keeper key can re-point a symbol after a 1h public timelock. The timelock buys time to react; it is not a veto.</li>
+        <li><strong>"Real" is not "good".</strong> The router answers "is this the real DCTY?", not "is DCTY a good buy?". The canonical token can still dump after graduation.</li>
+        <li><strong>Capped buys still pay the full fee.</strong> Send more than the remaining sellable allocation and the router buys the whole allocation and refunds the rest — but the 0.3% fee is charged on the full amount sent.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- TX LOG -->
+  <div class="grid1">
+    <div class="panel">
+      <h2 style="margin-bottom:10px">Transaction log</h2>
+      <div class="txlog" id="txlog"><div>No transactions yet this session.</div></div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="foot-inner">
+      <div><strong style="color:var(--text)">PIXFLOW</strong> console · testnet 46630 · mainnet not enabled</div>
+      <div>Code<br><a href="https://github.com/pixflow-dev/pixflow" target="_blank" rel="noopener">GitHub — pixflow-dev ↗</a></div>
+      <div>Router<br><code id="foot-router">not deployed yet</code></div>
+    </div>
+  </footer>
+</main>
+</div>
+<script src="console.bundle.js?v=2"></script>
+</body>
+</html>
