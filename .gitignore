@@ -1,0 +1,24 @@
+# Dependencies + build output
+node_modules/
+dist/
+
+# Generated contract artifacts (reproducible: npm run compile:contracts)
+contracts/artifacts/
+src/contracts.ts
+
+# Foundry (audit/)
+audit/out/
+audit/cache/
+audit/broadcast/
+
+# Secrets — NEVER commit keys, keystores, or env files
+.env
+.env.*
+*.key
+*.pem
+*keystore*.json
+**/data/*.json
+
+# Editor + OS
+.DS_Store
+*.swp
