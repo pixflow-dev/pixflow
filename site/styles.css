@@ -85,6 +85,11 @@ code {
 .nav-links a:hover { color: var(--ink); }
 .nav-right { display: flex; align-items: center; gap: 10px; }
 .nav-links + .nav-right { margin-left: 0; }
+.badge-mainnet {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  color: #031045; background: var(--cyan); border-radius: 999px;
+  padding: 4px 10px; white-space: nowrap; box-shadow: 0 0 18px rgba(34, 211, 238, 0.5);
+}
 .badge-testnet {
   font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
   color: var(--cyan); border: 1px solid var(--cyan-line); border-radius: 999px;
@@ -356,7 +361,7 @@ footer { border-top: 1px solid var(--line); margin-top: 20px; }
   .nav-inner { padding: 10px 16px; }
 }
 @media (max-width: 480px) {
-  .badge-testnet { display: none; } /* console nav: brand + Landing button must fit at 360px */
+  .badge-testnet, .badge-mainnet { display: none; } /* console nav: brand + Landing button must fit at 360px */
   .steps { grid-template-columns: 1fr; }
   .proof-fields { grid-template-columns: 1fr; }
   .chip { font-size: 12.5px; padding: 8px 12px; }

@@ -6,7 +6,7 @@
 <title>Pixflow — Buy the real token. Or buy nothing.</title>
 <meta name="description" content="Pixflow is a verified buy router for Pons on Robinhood Chain. It checks canonical token, wash trading, snipe-tax window and dev dump before executing — or reverts with a clear reason. 0.3% fee only on executed buys.">
 <link rel="icon" href="assets/pixflow-logo.png">
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <div class="page">
@@ -42,7 +42,7 @@
       <div class="chips">
         <span class="chip hot"><b>332</b> buys into dead DCTY clones</span>
         <span class="chip hot"><b>891</b> buys into 8 MEOW clones, no winner</span>
-        <span class="chip"><b>113/113</b> tests passing</span>
+        <span class="chip"><b>124/124</b> tests passing</span>
         <span class="chip"><b>0.3%</b> fee — only on executed buys</span>
       </div>
     </div>
@@ -107,9 +107,21 @@
       <p>No screenshots of vibes. Each verified buy is one on-chain transaction with a receipt anyone can check — buyer, token, ETH spent, tokens received, fee.</p>
     </div>
     <div class="proof-stats">
-      <div class="proof-stat"><b>113 / 113</b><span>tests passing — 63 contracts (ethereumjs VM) + 50 keeper resolver</span></div>
+      <div class="proof-stat"><b>124 / 124</b><span>tests passing — 63 contracts (ethereumjs VM) + 50 keeper resolver + 11 atomic launch+buy</span></div>
       <div class="proof-stat"><b>7 / 7</b><span>Foundry audit PoCs — fake-curve rejection, registry poisoning, balance-delta defense</span></div>
       <div class="proof-stat"><b>0 critical</b><span>0 Critical / 0 High findings in the Fase 1 audit pass</span></div>
+    </div>
+    <div class="proof-card">
+      <div class="empty-title">Live on mainnet — Robinhood Chain, 19 Nov 2026 <span class="badge badge-canonical">VERIFIED</span></div>
+      <p>Both contracts are deployed on mainnet (4663) and source-verified with an exact match on Sourcify — creation <b>and</b> runtime bytecode. The deployed code is byte-identical to the audited build, except the eight immutable slots holding exactly the three constructor addresses.</p>
+      <div class="proof-fields">
+        <div class="proof-field"><span>Router</span><b><a href="https://robinhoodchain.blockscout.com/address/0x7969f053107039b7f7ddf8446cd6c8b841c2faf9" target="_blank" rel="noopener">0x7969f0…2faf9 ↗</a></b></div>
+        <div class="proof-field"><span>Registry</span><b><a href="https://robinhoodchain.blockscout.com/address/0x37c8c967a32df1bc60a3244f29c187e385556ad3" target="_blank" rel="noopener">0x37c8c9…6ad3 ↗</a></b></div>
+        <div class="proof-field"><span>Fee</span><b>0.3% — only on executed buys</b></div>
+        <div class="proof-field"><span>Timelock</span><b>1 hour on fail-open updates</b></div>
+        <div class="proof-field"><span>Source</span><b><a href="https://github.com/pixflow-dev/pixflow" target="_blank" rel="noopener">pixflow-dev/pixflow ↗</a></b></div>
+        <div class="proof-field"><span>Deploy cost</span><b>~0.000048 ETH, one-time</b></div>
+      </div>
     </div>
     <div class="proof-card">
       <div class="empty-title">First verified buy — Robinhood testnet, 19 Nov 2026 <span class="badge badge-canonical">VERIFIED</span></div>
@@ -157,20 +169,20 @@
   <div class="foot-inner">
     <div>
       <strong>PIXFLOW</strong> — buy the real token, or buy nothing.<br>
-      <span class="foot-note">Open source (MIT). No token at launch. Testnet first; mainnet only when explicitly enabled.</span>
+      <span class="foot-note">Open source (MIT). Live on Robinhood Chain mainnet (4663) — contracts source-verified.</span>
     </div>
     <div>
       <strong>Code</strong><br>
-      <a href="https://github.com/pixflow-dev/pixflow" target="_blank" rel="noopener">GitHub — pixflow-dev ↗</a><br>
-      <span class="foot-note">Repo push pending — the public repo is not live yet.</span>
+      <a href="https://github.com/pixflow-dev/pixflow" target="_blank" rel="noopener">GitHub — pixflow-dev/pixflow ↗</a><br>
+      <span class="foot-note">Public repo — contracts, keeper, tests, docs.</span>
     </div>
     <div>
       <strong>Contracts</strong><br>
-      <span class="foot-note">VerifiedBuyRouter + CanonicalRegistry — live on Robinhood testnet (46630). Router 0xbbff…1bd6 · Registry 0xce11…dd7 · full addresses in the <a href="console.html">console</a>.</span>
+      <span class="foot-note">VerifiedBuyRouter + CanonicalRegistry — live on Robinhood mainnet (4663). Router 0x7969…2faf9 · Registry 0x37c8…6ad3 · full addresses in the <a href="console.html">console</a>.</span>
     </div>
   </div>
 </footer>
 </div>
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

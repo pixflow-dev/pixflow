@@ -1,33 +1,30 @@
-/* Pixflow console — viem-based, testnet 46630 only. Bundled with esbuild (see build-console.mjs).
+/* Pixflow console — viem-based, Robinhood Chain mainnet (4663). Bundled with esbuild (see build-console.mjs).
    ABIs come from ../src/contracts.ts (generated, single source of truth). */
 import {
   createPublicClient, createWalletClient, custom, http, fallback,
   parseEther, parseUnits, formatEther, formatUnits, isAddress, parseEventLogs,
 } from 'viem';
-import { ROUTER_ABI, REGISTRY_ABI, PONS_CURVE_ABI, PONS_FACTORY_STUB_ABI } from '../src/contracts.ts';
-import { robinhoodTestnet } from '../src/chains.ts';
+import { ROUTER_ABI, REGISTRY_ABI, PONS_CURVE_ABI, PONS_FACTORY_ABI } from '../src/contracts.ts';
+import { robinhoodMainnet } from '../src/chains.ts';
 
 'use strict';
 
-/* ================= CONFIG — FILL AFTER TESTNET DEPLOY =================
-   The testnet deployer fills these in once the router + registry +
-   PonsFactoryStub are live on Robinhood testnet (46630). While any of
-   them is the zero address the console shows "Testnet contracts not
-   deployed yet" and disables pre-flight + buys instead of crashing. */
-var ROUTER = '0xbbff316971d74aa23c2705a5a25f4451b3e51bd6';
-var REGISTRY = '0xce1131be137e07949ee2d8461a15ea0b1ca4bdd7';
-var FACTORY = '0x284a6466a30bacd769dfb4ed80369fba72617b0b'; // testnet: PonsFactoryStub
+/* ================= CONFIG — MAINNET (4663) =================
+   Live mainnet deploy, 19 Nov 2026. Router + registry deployed by the
+   Pixflow deployer wallet; factory is the real Pons V2 factory. While
+   any of them is the zero address the console shows "Mainnet contracts
+   not deployed yet" and disables pre-flight + buys instead of crashing. */
+var ROUTER = '0x7969f053107039b7f7ddf8446cd6c8b841c2faf9';
+var REGISTRY = '0x37c8c967a32df1bc60a3244f29c187e385556ad3';
+var FACTORY = '0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e'; // Pons V2 factory (mainnet)
 /* ================= END CONFIG ================= */
 
-// Mainnet is REFUSED unless explicitly enabled (testnet-first console).
-var MAINNET_ENABLED = false;
-var MAINNET_FACTORY = '0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e'; // reference only — never used while MAINNET_ENABLED is false
-var CHAIN_ID = 46630;
-var CHAIN_HEX = '0xb626';
-var EXPLORER = 'https://explorer.testnet.chain.robinhood.com';
+var CHAIN_ID = 4663;
+var CHAIN_HEX = '0x1237';
+var EXPLORER = 'https://robinhoodchain.blockscout.com';
 var RPCS = [
-  'https://rpc.testnet.chain.robinhood.com',
-  'https://api.blockvectra.com/v1/robinhood_testnet/public',
+  'https://rpc.mainnet.chain.robinhood.com',
+  'https://robinhood-rpc.publicnode.com',
 ];
 var ZERO = '0x0000000000000000000000000000000000000000';
 var FEE_BPS = 30n; // 0.3% — matches the router constant
@@ -45,10 +42,10 @@ function isDeployed() {
 }
 
 var publicClient = createPublicClient({ transport: fallback(RPCS.map(function (u) { return http(u); })) });
-var TESTNET_CHAIN = {
-  id: robinhoodTestnet.id,
-  name: robinhoodTestnet.name,
-  nativeCurrency: robinhoodTestnet.nativeCurrency,
+var MAINNET_CHAIN = {
+  id: robinhoodMainnet.id,
+  name: robinhoodMainnet.name,
+  nativeCurrency: robinhoodMainnet.nativeCurrency,
   rpcUrls: { default: { http: RPCS } },
   blockExplorers: { default: { name: 'Blockscout', url: EXPLORER } },
 };
@@ -122,7 +119,7 @@ function renderDeployStatus() {
   $('pf-registry-addr').textContent = REGISTRY === ZERO ? 'not deployed' : REGISTRY;
   $('pf-factory-addr').textContent = FACTORY === ZERO ? 'not deployed' : FACTORY;
   $('foot-router').textContent = ROUTER === ZERO ? 'not deployed yet' : ROUTER;
-  if (!deployed) setVerdict('idle', 'Pre-flight unavailable — testnet contracts not deployed yet.');
+  if (!deployed) setVerdict('idle', 'Pre-flight unavailable — mainnet contracts not deployed yet.');
 }
 
 /* ---------------- wallet ---------------- */
@@ -135,13 +132,13 @@ function renderWallet() {
     return;
   }
   if (chainId === CHAIN_ID) {
-    st.innerHTML = '<span class="ok">● Connected</span> <b>' + shortAddr(account) + '</b> · Robinhood Testnet (46630)';
+    st.innerHTML = '<span class="ok">● Connected</span> <b>' + shortAddr(account) + '</b> · Robinhood Chain (4663)';
     sw.style.display = 'none';
-  } else if (chainId === 4663) {
-    st.innerHTML = '<span class="bad">● Mainnet (4663)</span> <b>' + shortAddr(account) + '</b> · Pixflow is testnet-only — mainnet is refused until explicitly enabled.';
+  } else if (chainId === 46630) {
+    st.innerHTML = '<span class="bad">● Testnet (46630)</span> <b>' + shortAddr(account) + '</b> · Pixflow is live on mainnet — switch to Robinhood Chain (4663).';
     sw.style.display = '';
   } else {
-    st.innerHTML = '<span class="bad">● Wrong network</span> <b>' + shortAddr(account) + '</b> · chain ' + chainId + ' — Pixflow needs testnet 46630.';
+    st.innerHTML = '<span class="bad">● Wrong network</span> <b>' + shortAddr(account) + '</b> · chain ' + chainId + ' — Pixflow needs mainnet 4663.';
     sw.style.display = '';
   }
 }
@@ -155,7 +152,7 @@ async function connect() {
     if (!accounts || !accounts.length) { banner('banner-err', 'No account was shared by the wallet.'); return; }
     account = accounts[0];
     chainId = Number(await window.ethereum.request({ method: 'eth_chainId' }));
-    walletClient = createWalletClient({ account: account, chain: TESTNET_CHAIN, transport: custom(window.ethereum) });
+    walletClient = createWalletClient({ account: account, chain: MAINNET_CHAIN, transport: custom(window.ethereum) });
     banner('banner-err', '');
     renderWallet();
     await refreshFees();
@@ -174,12 +171,12 @@ async function switchChain() {
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
           params: [{
-            chainId: CHAIN_HEX, chainName: 'Robinhood Chain Testnet',
+            chainId: CHAIN_HEX, chainName: 'Robinhood Chain',
             nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
             rpcUrls: [RPCS[0]], blockExplorerUrls: [EXPLORER],
           }],
         });
-      } catch (e2) { banner('banner-err', 'Could not add the testnet chain: ' + errMsg(e2)); }
+      } catch (e2) { banner('banner-err', 'Could not add Robinhood Chain: ' + errMsg(e2)); }
     } else {
       banner('banner-err', 'Could not switch chain: ' + errMsg(e));
     }
@@ -188,7 +185,7 @@ async function switchChain() {
 if (window.ethereum) {
   window.ethereum.on('accountsChanged', function (accs) {
     account = accs && accs.length ? accs[0] : null;
-    if (account) walletClient = createWalletClient({ account: account, chain: TESTNET_CHAIN, transport: custom(window.ethereum) });
+    if (account) walletClient = createWalletClient({ account: account, chain: MAINNET_CHAIN, transport: custom(window.ethereum) });
     renderWallet(); refreshFees();
   });
   window.ethereum.on('chainChanged', function (hex) {
@@ -210,7 +207,7 @@ function clearPreflight() {
 }
 async function runPreflight() {
   if (!isDeployed()) {
-    banner('banner-warn', 'Testnet contracts not deployed yet — pre-flight is disabled until the deploy lands.');
+    banner('banner-warn', 'Mainnet contracts not deployed yet — pre-flight is disabled until the deploy lands.');
     return null;
   }
   var gen = ++pfGen;
@@ -297,7 +294,7 @@ async function runPreflight() {
     $('pf-dev').innerHTML = entry.devDumped ? '<span class="red">FLAGGED — dev dumped</span>' : '<span class="green">clear</span>';
 
     // Factory check (M-01): the factory registry is the ONLY authority for the curve.
-    var launch = await publicClient.readContract({ address: FACTORY, abi: PONS_FACTORY_STUB_ABI, functionName: 'getLaunchedToken', args: [token] });
+    var launch = await publicClient.readContract({ address: FACTORY, abi: PONS_FACTORY_ABI, functionName: 'getLaunchedToken', args: [token] });
     if (gen !== pfGen) return null;
     if (!launch.exists || launch.curve === ZERO) {
       $('pf-curve').innerHTML = '<span class="red">not launched — the factory has no curve for this token</span>';
@@ -399,9 +396,8 @@ async function runPreflight() {
 /* ---------------- transactions ---------------- */
 function requireReady() {
   if (!account) { banner('banner-err', 'Connect your wallet first.'); return false; }
-  if (chainId === 4663 && !MAINNET_ENABLED) { banner('banner-err', 'Mainnet is not enabled for this console — switch to Robinhood testnet (46630).'); return false; }
-  if (chainId !== CHAIN_ID) { banner('banner-err', 'Switch to Robinhood Chain testnet (46630) first — the button is at the top.'); return false; }
-  if (!isDeployed()) { banner('banner-err', 'Testnet contracts not deployed yet.'); return false; }
+  if (chainId !== CHAIN_ID) { banner('banner-err', 'Switch to Robinhood Chain (4663) first — the button is at the top.'); return false; }
+  if (!isDeployed()) { banner('banner-err', 'Mainnet contracts not deployed yet.'); return false; }
   return true;
 }
 async function sendTx(label, fn) {

@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pixflow Console — Testnet</title>
-<meta name="description" content="Pixflow console: buy the real Pons token through the Verified Buy Router, or revert with a clear reason. Robinhood Chain testnet (46630).">
+<title>Pixflow Console — Mainnet</title>
+<meta name="description" content="Pixflow console: buy the real Pons token through the Verified Buy Router, or revert with a clear reason. Robinhood Chain mainnet (4663).">
 <link rel="icon" href="assets/pixflow-logo.png">
-<link rel="stylesheet" href="styles.css?v=1">
-<link rel="stylesheet" href="console.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="console.css?v=2">
 </head>
 <body>
 <div class="page">
@@ -23,7 +23,7 @@
       <a href="index.html#proof">Proof</a>
     </nav>
     <div class="nav-right">
-      <span class="badge-testnet">TESTNET 46630</span>
+      <span class="badge-mainnet">MAINNET 4663</span>
       <a class="btn btn-ghost btn-small" href="index.html">← Landing</a>
     </div>
   </div>
@@ -37,16 +37,16 @@
     </div>
   </div>
 
-  <!-- DEPLOY STATUS — visible until the testnet addresses are filled in (console.src.js CONFIG) -->
+  <!-- DEPLOY STATUS — visible only if the mainnet addresses are ever blanked (console.src.js CONFIG) -->
   <div class="banner deploy show" id="deploy-banner">
-    <b>Testnet contracts not deployed yet.</b> The router + registry addresses are still placeholders in the console config — the testnet deploy is in progress. Wallet connection works, but pre-flight and buys are disabled until the deploy lands.
+    <b>Mainnet contracts not deployed yet.</b> The router + registry addresses are still placeholders in the console config. Wallet connection works, but pre-flight and buys are disabled until the deploy lands.
   </div>
 
   <!-- WALLET -->
   <div class="wallet-bar">
     <div class="wallet-status" id="wallet-status">Wallet not connected.</div>
     <button class="btn btn-primary btn-small" id="btn-connect">Connect Wallet</button>
-    <button class="btn btn-ghost btn-small" id="btn-switch" style="display:none">Switch to Testnet 46630</button>
+    <button class="btn btn-ghost btn-small" id="btn-switch" style="display:none">Switch to Mainnet 4663</button>
   </div>
   <div class="wallet-bar" id="fees-bar" style="display:none">
     <div class="wallet-status">Unclaimed Pixflow fees for your wallet: <b id="fees-owed">—</b> <span style="color:var(--muted)">(0.3% of executed buys accrues here — pull-based, claim anytime.)</span></div>
@@ -92,7 +92,7 @@
         <button class="btn btn-primary" id="btn-buy" style="flex:1" disabled>Buy verified</button>
       </div>
       <div class="result" id="buy-result" style="display:none"></div>
-      <p class="panel-sub" style="margin-top:14px">Need testnet ETH? Get free testnet ETH at <a href="https://faucet.testnet.chain.robinhood.com/" target="_blank" rel="noopener">the faucet ↗</a>.</p>
+      <p class="panel-sub" style="margin-top:14px">This console uses <b>real ETH on mainnet</b>. Start small — pre-flight is free and read-only, so run it before every buy.</p>
     </div>
 
     <!-- PRE-FLIGHT -->
@@ -118,7 +118,7 @@
       <div class="kv" style="margin-top:14px">
         <div><span>Router</span><b id="pf-router-addr">not deployed</b></div>
         <div><span>Registry</span><b id="pf-registry-addr">not deployed</b></div>
-        <div><span>Factory (testnet stub)</span><b id="pf-factory-addr">not deployed</b></div>
+        <div><span>Factory (Pons V2)</span><b id="pf-factory-addr">not deployed</b></div>
       </div>
     </div>
   </div>
@@ -128,7 +128,7 @@
     <div class="limits">
       <h3>Know the limits</h3>
       <ul>
-        <li><strong>Testnet only.</strong> This console talks to Robinhood Chain testnet (46630). Mainnet is refused until explicitly enabled — even if your wallet is on mainnet, the console will not send anything there.</li>
+        <li><strong>Mainnet, real money.</strong> This console talks to Robinhood Chain mainnet (4663) and sends real transactions with real ETH. Pre-flight is free and read-only — always run it before buying.</li>
         <li><strong>The registry is a trust point.</strong> The keeper decides which token is canonical. A compromised keeper key can re-point a symbol after a 1h public timelock. The timelock buys time to react; it is not a veto.</li>
         <li><strong>"Real" is not "good".</strong> The router answers "is this the real DCTY?", not "is DCTY a good buy?". The canonical token can still dump after graduation.</li>
         <li><strong>Capped buys still pay the full fee.</strong> Send more than the remaining sellable allocation and the router buys the whole allocation and refunds the rest — but the 0.3% fee is charged on the full amount sent.</li>
@@ -146,13 +146,13 @@
 
   <footer>
     <div class="foot-inner">
-      <div><strong style="color:var(--text)">PIXFLOW</strong> console · testnet 46630 · mainnet not enabled</div>
-      <div>Code<br><a href="https://github.com/pixflow-dev/pixflow" target="_blank" rel="noopener">GitHub — pixflow-dev ↗</a></div>
+      <div><strong style="color:var(--text)">PIXFLOW</strong> console · mainnet 4663</div>
+      <div>Code<br><a href="https://github.com/pixflow-dev/pixflow" target="_blank" rel="noopener">GitHub — pixflow-dev/pixflow ↗</a></div>
       <div>Router<br><code id="foot-router">not deployed yet</code></div>
     </div>
   </footer>
 </main>
 </div>
-<script src="console.bundle.js?v=2"></script>
+<script src="console.bundle.js?v=3"></script>
 </body>
 </html>
