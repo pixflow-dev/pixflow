@@ -42,9 +42,9 @@ jobs:
     env:
       KEEPER_CHAIN_ID: '4663'
       KEEPER_ALLOW_MAINNET: '1'
-      KEEPER_RPC_URL: https://robinhood-rpc.publicnode.com
-      KEEPER_REGISTRY: 0x37c8c967a32df1bc60a3244f29c187e385556ad3
-      KEEPER_SYMBOLS: DCTY,MEOW
+      KEEPER_RPC_URL: 'https://robinhood-rpc.publicnode.com'
+      KEEPER_REGISTRY: '0x37c8c967a32df1bc60a3244f29c187e385556ad3'
+      KEEPER_SYMBOLS: 'DCTY,MEOW'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
