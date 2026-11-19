@@ -1,19 +1,34 @@
 # BRANDING — single source of truth for project identity
 
+**Brand name (chosen 19 Nov 2026 ~10:37 WIB): Pixflow.**
+Ivan sent three options (pixflow / sentrix / neithon) and asked qyu
+to pick. Pixflow won: sentrix is already a live Layer-1 blockchain
+(Sentrix Labs, token SRX, mainnet since Apr 2026) — a fatal collision
+for a product whose pitch is "buy the real one, not the clone";
+neithon is hard to spell and pronounce; pixflow is clean, easy to
+say/spell, and "flow" nods to routing. Verified 19 Nov ~10:36 WIB:
+no Pons token under any of the three names, no DexScreener pairs,
+and pixflow.xyz available (NXDOMAIN).
+
 **Working name (Fase 1 only): Verified Buy Router.**
 **Short name in code: VBR.**
-**Logo: none yet.**
+**Logo: none yet — still awaited from Ivan.**
 
-Ivan already has the real brand name + logo and will share them. When
-they arrive, the swap is mechanical — the name appears ONLY in the
-places listed below (no name is baked into contract behaviour, storage
-layout, or selectors; renaming is a text change + recompile).
+Deliberate: the contract keeps its descriptive name
+`VerifiedBuyRouter` (and the code keeps `VBR`) — renaming it would
+invalidate the Fase 1 verification and the audit PoC copies
+(byte-identical, sha256-checked in AUDIT-POC.md). Only the
+project-facing identity (docs, package name) carries Pixflow.
+
+When the logo arrives, the swap is mechanical — the name appears ONLY
+in the places listed below (no name is baked into contract behaviour,
+storage layout, or selectors; renaming is a text change + recompile).
 
 ## Where the working name appears
 
 | Place | What it says |
 |---|---|
-| `package.json` | `name: "verified-buy-router"`, description |
+| `package.json` | `name: "pixflow"`, description |
 | `README.md` | Title + prose |
 | `DESIGN.md` | Title + prose |
 | `RESEARCH.md` | Prose references |

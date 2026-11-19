@@ -1,4 +1,4 @@
-# Verified Buy Router
+# Pixflow
 
 **Buy the REAL Pons token — or revert with a clear reason.**
 
@@ -12,8 +12,8 @@ and your ETH never leaves your wallet.
 
 **Status: Fase 1 — contracts + test suite.** No mainnet deploy, no
 testnet deploy yet (local E2E on the ethereumjs VM only). No token at
-launch. Keeper + website are Fase 2. Brand name + logo come from Ivan —
-see [BRANDING.md](BRANDING.md).
+launch. Keeper + website are Fase 2. Brand name is Pixflow (chosen
+19 Nov 2026, see BRANDING.md); logo still awaited from Ivan.
 
 ## How it works
 

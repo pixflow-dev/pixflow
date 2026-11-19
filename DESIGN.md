@@ -1,4 +1,4 @@
-# DESIGN — Verified Buy Router
+# DESIGN — Pixflow (Verified Buy Router)
 
 Architecture, the on-chain/off-chain split, the resolver rules, and the
 threat model. Fase 1 (this repo) is the contracts + test suite only. The
