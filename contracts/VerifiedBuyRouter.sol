@@ -59,6 +59,25 @@ import "./CanonicalRegistry.sol";
  * DESIGN.md). The router enforces the registry's verdict on-chain; a wrong
  * registry entry is a keeper failure, mitigated by the registry's 1h
  * timelock + public events, not by this contract.
+ *
+ * Atomic launch+buy (launchAndBuy): one transaction both LAUNCHES a Pons
+ * token (via the factory's launchTokenFor, the entrypoint Pons built for
+ * "the trusted atomic launch-and-buy router") and buys it, so the
+ * creator's opening buy lands in the launch block, ahead of snipers.
+ * The launch leg is canonical-by-construction — the token did not exist
+ * before this transaction, so there is no clone to confuse it with — and
+ * the buy leg skips the registry canonical check and the snipe-tax
+ * window check (a just-launched token is always inside the window).
+ * Safety comes from the factory instead: launchTokenFor auto-exempts
+ * the originalDeployer (the caller) from the snipe tax, and the router
+ * VERIFIES that exemption on-chain (curve.snipeTaxExempt(caller)) before
+ * buying, so a factory behaviour change fails closed with TaxWindow
+ * instead of executing a 99% taxed buy. The 0.3% fee applies to the BUY
+ * leg only — the launch fee is forwarded to the factory exactly.
+ * The launch does NOT register the token as canonical: the keeper's
+ * resolver must still observe it and register it (with the timelock)
+ * before anyone else can buy it through buyVerified. Requires the Pons
+ * factory owner to set this router as launchForwarder on mainnet.
  */
 contract VerifiedBuyRouter {
     uint256 public constant FEE_BPS = 30; // 0.3% of the executed buy value
@@ -74,6 +93,7 @@ contract VerifiedBuyRouter {
     error DevDumped();
     error CurveClosed();
     error TaxWindow();
+    error InsufficientBuyValue();
     error QuoteUnavailable();
     error SlippageExceeded(uint256 received, uint256 minTokensOut);
     error NothingToClaim();
@@ -95,6 +115,14 @@ contract VerifiedBuyRouter {
     );
     event FeeRecipientUpdated(address indexed previousRecipient, address indexed newRecipient);
     event FeesClaimed(address indexed recipient, uint256 amount);
+    event AtomicLaunchBuy(
+        address indexed buyer,
+        address indexed token,
+        address indexed curve,
+        uint256 launchFee,
+        uint256 buyValue,
+        uint256 tokensReceived
+    );
 
     address public immutable owner;
     // Keeper-maintained canonical registry (read-only from here).
@@ -225,11 +253,6 @@ contract VerifiedBuyRouter {
         if (entry.washSuspect) revert WashSuspect();
         if (entry.devDumped) revert DevDumped();
 
-        // The curve must still be tradeable: buys close once the sellable
-        // allocation is exhausted (readyToGraduate), not only after the
-        // graduated flag is set.
-        if (curve.graduated() || curve.readyToGraduate()) revert CurveClosed();
-
         // Snipe-tax window, read from the CURVE (ground truth): the
         // launch timestamp + window snapshotted at initialize(). The
         // registry keeps its own launchedAt as evidence, but the router
@@ -237,11 +260,123 @@ contract VerifiedBuyRouter {
         // not let a buy land inside the tax window.
         if (block.timestamp < curve.launchedAt() + curve.snipeTaxSeconds()) revert TaxWindow();
 
-        // Fee: 0.3% of the ETH sent, charged ONLY when the buy executes
+        return _executeBuy(launch, token, symbolHash, msg.value, minTokensOut);
+    }
+
+    /**
+     * @notice Launch a Pons token AND buy it in ONE transaction — the
+     * creator's opening buy lands in the launch block, ahead of snipers.
+     * @dev The launch leg goes through the factory's launchTokenFor, the
+     * entrypoint Pons built for "the trusted atomic launch-and-buy
+     * router". Only the configured launchForwarder may call it, so on
+     * mainnet the Pons factory owner must set this router as
+     * launchForwarder first — a permissioned dependency, not something
+     * the router can do for itself.
+     *
+     * The buy leg shares _executeBuy with buyVerified (same fee, quote,
+     * cap, balance-delta slippage and refund logic) but skips the two
+     * checks that cannot apply to a token born in this transaction:
+     *   - the registry canonical check: the token did not exist before
+     *     this tx, so there is no clone to confuse it with — it is
+     *     canonical-by-construction for THIS buy only. The launch does
+     *     NOT write to the registry: the keeper must still observe the
+     *     token and register it (with the timelock) before anyone else
+     *     can buy it through buyVerified.
+     *   - the snipe-tax window check: a just-launched token is always
+     *     inside the window. Safety comes from the factory instead: the
+     *     snipe tax is charged on the RECIPIENT, and launchTokenFor
+     *     auto-exempts the originalDeployer (the caller here) — so the
+     *     buy, whose recipient is the caller, pays no snipe tax even in
+     *     the launch second. The router verifies that exemption on-chain
+     *     (curve.snipeTaxExempt(caller)) before buying: a factory
+     *     behaviour change fails closed with TaxWindow instead of
+     *     executing a 99% taxed buy.
+     *
+     * The 0.3% fee applies to the BUY leg only (msg.value minus the
+     * launch fee, which is forwarded to the factory exactly).
+     * @param params Token launch terms (forwarded to the factory as-is;
+     * expectedEconomics 0 waives the economics pin).
+     * @param launchConfigId Factory launch config to use.
+     * @param pairToken Quote token — v1 supports native ETH only
+     * (address(0)); anything else reverts NonNativeQuote.
+     * @param snipeTaxExemptions Extra addresses exempt from the snipe tax
+     * (e.g. the creator's bundle wallets), forwarded to the factory.
+     * @param minTokensOut Minimum tokens the buyer accepts (QUANTITY bound).
+     * @return token Address of the launched token.
+     * @return curve Address of the launched token's bonding curve.
+     * @return received Tokens the buyer actually received (balance delta).
+     */
+    function launchAndBuy(
+        IPonsV2LaunchFactory.TokenParams calldata params,
+        uint256 launchConfigId,
+        address pairToken,
+        address[] calldata snipeTaxExemptions,
+        uint256 minTokensOut
+    ) external payable nonReentrant returns (address token, address curve, uint256 received) {
+        // v1: native-ETH quote only — fail fast BEFORE launching, so a
+        // bad pairToken never spends a launch.
+        if (pairToken != address(0)) revert NonNativeQuote();
+
+        IPonsV2LaunchFactory factory = IPonsV2LaunchFactory(ponsFactory);
+        uint256 fee = factory.launchFee();
+        // msg.value must cover the launch fee AND leave something to buy
+        // with; the buy leg's own ZeroAmount check would catch a zero
+        // buyValue, but failing here names the real problem.
+        if (msg.value <= fee) revert InsufficientBuyValue();
+        uint256 buyValue = msg.value - fee;
+
+        (token, curve) = factory.launchTokenFor{value: fee}(
+            params, launchConfigId, pairToken, msg.sender, snipeTaxExemptions
+        );
+
+        // M-01, same as _buy: read the launch back from the factory
+        // registry rather than trusting any return value alone.
+        IPonsV2LaunchFactory.LaunchedToken memory launch = factory.getLaunchedToken(token);
+        if (!launch.exists || launch.curve != curve) revert NotLaunched();
+
+        // Defense-in-depth for the skipped window check: the factory is
+        // SUPPOSED to auto-exempt the originalDeployer, but if that
+        // behaviour ever changes, this reverts instead of executing a
+        // buy taxed at up to 99%.
+        if (!IPonsV2BondingCurve(curve).snipeTaxExempt(msg.sender)) revert TaxWindow();
+
+        bytes32 symbolHash = keccak256(bytes(IERC20Metadata(token).symbol()));
+        received = _executeBuy(launch, token, symbolHash, buyValue, minTokensOut);
+        emit AtomicLaunchBuy(msg.sender, token, curve, fee, buyValue, received);
+    }
+
+    /**
+     * @notice Shared buy execution for buyVerified and launchAndBuy:
+     * curve-open check, 0.3% fee on `buyValue`, pre-flight quote, spend
+     * cap, curve.buy with recipient = buyer, balance-delta slippage
+     * check, refund, fee accrual, BuyVerified event.
+     * @param launch Factory registry record for the token (curve read
+     * from the factory, never from the caller).
+     * @param buyValue ETH available for the buy: msg.value for
+     * buyVerified, msg.value minus the launch fee for launchAndBuy.
+     * Refund accounting measures the router balance at entry, so the
+     * launch fee (already forwarded) is never part of the refund math.
+     */
+    function _executeBuy(
+        IPonsV2LaunchFactory.LaunchedToken memory launch,
+        address token,
+        bytes32 symbolHash,
+        uint256 buyValue,
+        uint256 minTokensOut
+    ) internal returns (uint256 received) {
+        if (buyValue == 0) revert ZeroAmount();
+        IPonsV2BondingCurve curve = IPonsV2BondingCurve(launch.curve);
+
+        // The curve must still be tradeable: buys close once the sellable
+        // allocation is exhausted (readyToGraduate), not only after the
+        // graduated flag is set.
+        if (curve.graduated() || curve.readyToGraduate()) revert CurveClosed();
+
+        // Fee: 0.3% of the buy value, charged ONLY when the buy executes
         // (every revert above happens before any fee accrues). Integer
         // division rounds DOWN — the buyer keeps the dust.
-        uint256 fee = (msg.value * FEE_BPS) / BPS;
-        uint256 net = msg.value - fee;
+        uint256 fee = (buyValue * FEE_BPS) / BPS;
+        uint256 net = buyValue - fee;
 
         // Pre-flight quote from live reserves with the curve's own formula.
         // A zero quote (empty reserves, dust input) reverts cleanly here
@@ -278,9 +413,9 @@ contract VerifiedBuyRouter {
         // refunded (measured by balance delta — normally 0, since the cap
         // matches the curve's own clamp math exactly). Both go back to the
         // buyer in the same transaction.
-        // ethBefore includes msg.value + prior accrued fees; `spend` left
-        // as the buy's value, so anything above (ethBefore - spend) is a
-        // curve refund that belongs to the buyer.
+        // ethBefore includes the buy value + prior accrued fees; `spend`
+        // left as the buy's value, so anything above (ethBefore - spend)
+        // is a curve refund that belongs to the buyer.
         uint256 curveRefund = address(this).balance - (ethBefore - spend);
         uint256 refund = (net - spend) + curveRefund;
         if (refund != 0) _sendEth(msg.sender, refund);
@@ -394,6 +529,7 @@ interface IPonsV2BondingCurve {
     function creatorTaxBps() external view returns (uint256);
     function launchedAt() external view returns (uint256);
     function snipeTaxSeconds() external view returns (uint256);
+    function snipeTaxExempt(address account) external view returns (bool);
     function sellableTokens() external view returns (uint256);
 }
 

@@ -6,12 +6,26 @@
  *
  * Contracts compiled:
  * - VerifiedBuyRouter.sol + CanonicalRegistry.sol (ours)
- * - test/PonsFactoryStub.sol + test/LyingBuyCurve.sol (ours, test-only)
- * - vendor PonsV2BondingCurve.sol + PonsV2LauncherToken.sol (REAL Pons V2
- *   contracts, vendored unmodified from Sourcify — see
- *   contracts/vendor/README.md). Compiled with solc 0.8.35; Pons used
- *   0.8.35, so the bytecode differs from mainnet only in the metadata
- *   hash (same source, pragma ^0.8.26).
+ * - test/PonsFactoryStub.sol + test/LyingBuyCurve.sol + test/ReentrantBuyer.sol
+ *   + test/PonsTestStubs.sol (ours, test-only)
+ * - The REAL Pons v2 factory suite (vendored unmodified from Sourcify — see
+ *   contracts/vendor/README.md): factory, launch deployer, meme hook,
+ *   buyback vault, launch locker, graduation executor, bonding curve,
+ *   launcher token, graduation guard + math.
+ *
+ * Import resolution is RECURSIVE: entry points are listed below and every
+ * `import` is followed (remappings + relative paths + literal source keys),
+ * so the full import closure — including @uniswap/v4-core and
+ * @uniswap/v4-periphery from node_modules — is compiled. Source keys follow
+ * the existing convention: our contracts use bare names, Pons files keep
+ * foundry-style `contracts/src/...` / `contracts/lib/...` keys (disk:
+ * contracts/vendor/pons/contracts/...).
+ *
+ * NOTE: @uniswap/v4-hooks-public and permit2 are NOT on npm (hooks-public is
+ * git-only, permit2 was unpublished 2026-08-11). Minimal compile-time shims
+ * live in contracts/vendor/uniswap-hooks-public/ (BaseHook) and
+ * contracts/vendor/permit2/ (IAllowanceTransfer); see the headers in those
+ * files for what they do and do not cover.
  *
  * Run: npm run compile:contracts
  * Re-run after ANY change to contracts/*.sol.
@@ -24,68 +38,81 @@ import solc from 'solc';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const artifactsDir = path.join(root, 'contracts', 'artifacts');
 
-// Source key (as solc sees it) -> file on disk, relative to repo root.
-// Pons + OZ files keep their foundry-style keys so relative imports
-// resolve; the remapping below handles "@openzeppelin/contracts/...".
-const SOURCES = {
-  // Ours.
-  'VerifiedBuyRouter.sol': 'contracts/VerifiedBuyRouter.sol',
-  'CanonicalRegistry.sol': 'contracts/CanonicalRegistry.sol',
-  'IPonsV2LaunchFactory.sol': 'contracts/IPonsV2LaunchFactory.sol',
-  'PonsFactoryStub.sol': 'contracts/test/PonsFactoryStub.sol',
-  'LyingBuyCurve.sol': 'contracts/test/LyingBuyCurve.sol',
-  'ReentrantBuyer.sol': 'contracts/test/ReentrantBuyer.sol',
-  // Pons V2 (vendored, unmodified).
-  'contracts/src/v2/PonsV2BondingCurve.sol':
-    'contracts/vendor/pons/contracts/src/v2/PonsV2BondingCurve.sol',
-  'contracts/src/v2/libraries/PonsV2BondingCurveMath.sol':
-    'contracts/vendor/pons/contracts/src/v2/libraries/PonsV2BondingCurveMath.sol',
-  'contracts/src/v2/PonsV2LauncherToken.sol':
-    'contracts/vendor/pons/contracts/src/v2/PonsV2LauncherToken.sol',
-  'contracts/src/v2/PonsV2BuybackVault.sol':
-    'contracts/vendor/pons/contracts/src/v2/PonsV2BuybackVault.sol',
-  'contracts/src/v2/interfaces/ILaunchpadV2.sol':
-    'contracts/vendor/pons/contracts/src/v2/interfaces/ILaunchpadV2.sol',
-  'contracts/src/v2/interfaces/ILaunchpadV2Graduation.sol':
-    'contracts/vendor/pons/contracts/src/v2/interfaces/ILaunchpadV2Graduation.sol',
-};
-
-// OpenZeppelin files (vendored from the same Sourcify response) — the
-// transitive closure of what the Pons tree imports. Paths are relative to
-// contracts/lib/openzeppelin-contracts/contracts/.
-const OZ_FILES = [
-  'access/Ownable.sol',
-  'access/Ownable2Step.sol',
-  'interfaces/draft-IERC6093.sol',
-  'interfaces/IERC1363.sol',
-  'interfaces/IERC165.sol',
-  'interfaces/IERC20.sol',
-  'interfaces/IERC20Metadata.sol',
-  'token/ERC20/ERC20.sol',
-  'token/ERC20/IERC20.sol',
-  'token/ERC20/extensions/ERC20Burnable.sol',
-  'token/ERC20/extensions/IERC20Metadata.sol',
-  'token/ERC20/utils/SafeERC20.sol',
-  'utils/Context.sol',
-  'utils/Panic.sol',
-  'utils/introspection/IERC165.sol',
-  'utils/ReentrancyGuard.sol',
-  'utils/StorageSlot.sol',
-  'utils/math/Math.sol',
-  'utils/math/SafeCast.sol',
+// [import prefix, solc-key prefix]
+const REMAPPINGS = [
+  ['@openzeppelin/contracts/', 'contracts/lib/openzeppelin-contracts/contracts/'],
+  ['@uniswap/v4-core/', 'node_modules/@uniswap/v4-core/'],
+  ['@uniswap/v4-periphery/', 'node_modules/@uniswap/v4-periphery/'],
+  ['@uniswap/v4-hooks-public/', 'contracts/vendor/uniswap-hooks-public/'],
+  ['permit2/', 'contracts/vendor/permit2/'],
 ];
 
-for (const f of OZ_FILES) {
-  SOURCES[`contracts/lib/openzeppelin-contracts/contracts/${f}`] =
-    `contracts/vendor/pons/contracts/lib/openzeppelin-contracts/contracts/${f}`;
+// Solc source keys of the entry points. Our contracts use bare names (the
+// historical convention); Pons files use foundry-style keys.
+const ENTRIES = [
+  // Ours.
+  'VerifiedBuyRouter.sol',
+  'CanonicalRegistry.sol',
+  'IPonsV2LaunchFactory.sol',
+  'PonsFactoryStub.sol',
+  'LyingBuyCurve.sol',
+  'ReentrantBuyer.sol',
+  'PonsTestStubs.sol',
+  // Pons V2 (vendored, unmodified).
+  'contracts/src/v2/PonsV2LaunchFactory.sol',
+  'contracts/src/v2/PonsV2LaunchDeployer.sol',
+  'contracts/src/v2/hooks/PonsV2MemeHook.sol',
+  'contracts/src/v2/PonsV2BuybackVault.sol',
+  'contracts/src/v2/PonsV2LaunchLocker.sol',
+  'contracts/src/v2/PonsV2GraduationExecutor.sol',
+  'contracts/src/v2/PonsV2BondingCurve.sol',
+  'contracts/src/v2/PonsV2LauncherToken.sol',
+];
+
+function diskPath(key) {
+  const candidates = [
+    key,
+    `contracts/${key}`,
+    `contracts/test/${key}`,
+    `contracts/vendor/pons/${key}`,
+  ];
+  for (const rel of candidates) {
+    const full = path.join(root, rel);
+    if (existsSync(full)) return full;
+  }
+  throw new Error(`source not found on disk for key: ${key}`);
 }
 
-const sources = {};
-for (const [key, rel] of Object.entries(SOURCES)) {
-  const full = path.join(root, rel);
-  if (!existsSync(full)) throw new Error(`missing source file: ${rel}`);
-  sources[key] = { content: readFileSync(full, 'utf8') };
+function resolveImport(fromKey, spec) {
+  for (const [prefix, target] of REMAPPINGS) {
+    if (spec.startsWith(prefix)) return target + spec.slice(prefix.length);
+  }
+  if (spec.startsWith('./') || spec.startsWith('../')) {
+    const parts = path
+      .dirname(fromKey)
+      .split('/')
+      .filter((s) => s !== '' && s !== '.');
+    for (const seg of spec.split('/')) {
+      if (seg === '.' || seg === '') continue;
+      else if (seg === '..') parts.pop();
+      else parts.push(seg);
+    }
+    return parts.join('/');
+  }
+  // Literal source key (project-rooted import, e.g. "contracts/src/...").
+  return spec;
 }
+
+const IMPORT_RE = /import\s+(?:[^'"]*?\s+from\s+)?["']([^"']+)["']/g;
+const sources = {};
+function addSource(key) {
+  if (sources[key]) return;
+  const content = readFileSync(diskPath(key), 'utf8');
+  sources[key] = { content };
+  for (const m of content.matchAll(IMPORT_RE)) addSource(resolveImport(key, m[1]));
+}
+for (const entry of ENTRIES) addSource(entry);
+console.log(`compiling ${Object.keys(sources).length} sources (solc ${solc.version()})...`);
 
 const input = {
   language: 'Solidity',
@@ -97,7 +124,7 @@ const input = {
     viaIR: true,
     evmVersion: 'cancun',
     optimizer: { enabled: true, runs: 200 },
-    remappings: ['@openzeppelin/contracts/=contracts/lib/openzeppelin-contracts/contracts/'],
+    remappings: REMAPPINGS.map(([a, b]) => `${a}=${b}`),
     outputSelection: {
       '*': { '*': ['abi', 'evm.bytecode.object', 'evm.deployedBytecode.object'] },
     },
@@ -111,7 +138,7 @@ for (const warning of (output.errors ?? []).filter((e) => e.severity === 'warnin
   console.warn(`solc warning: ${warning.message}`);
 }
 if (errors.length > 0) {
-  for (const e of errors) console.error(`solc error: ${e.message}`);
+  for (const e of errors) console.error(e.formattedMessage ?? `solc error: ${e.message}`);
   process.exit(1);
 }
 
@@ -123,8 +150,18 @@ const WANTED = [
   'PonsFactoryStub',
   'LyingBuyCurve',
   'ReentrantBuyer',
+  'StubPoolManager',
+  'StubPositionManager',
+  'StubPermit2',
+  'StubFeeEscrow',
   'PonsV2BondingCurve',
   'PonsV2LauncherToken',
+  'PonsV2LaunchFactory',
+  'PonsV2LaunchDeployer',
+  'PonsV2MemeHook',
+  'PonsV2BuybackVault',
+  'PonsV2LaunchLocker',
+  'PonsV2GraduationExecutor',
 ];
 const compiled = {};
 for (const [file, contracts] of Object.entries(output.contracts)) {
@@ -174,12 +211,43 @@ export const LYING_BUY_CURVE_BYTECODE = '${compiled.LyingBuyCurve.bytecode}' as 
 export const REENTRANT_BUYER_ABI = ${JSON.stringify(compiled.ReentrantBuyer.abi)} as const;
 export const REENTRANT_BUYER_BYTECODE = '${compiled.ReentrantBuyer.bytecode}' as const;
 
+export const STUB_POOL_MANAGER_ABI = ${JSON.stringify(compiled.StubPoolManager.abi)} as const;
+export const STUB_POOL_MANAGER_BYTECODE = '${compiled.StubPoolManager.bytecode}' as const;
+
+export const STUB_POSITION_MANAGER_ABI = ${JSON.stringify(compiled.StubPositionManager.abi)} as const;
+export const STUB_POSITION_MANAGER_BYTECODE = '${compiled.StubPositionManager.bytecode}' as const;
+
+export const STUB_PERMIT2_ABI = ${JSON.stringify(compiled.StubPermit2.abi)} as const;
+export const STUB_PERMIT2_BYTECODE = '${compiled.StubPermit2.bytecode}' as const;
+
+export const STUB_FEE_ESCROW_ABI = ${JSON.stringify(compiled.StubFeeEscrow.abi)} as const;
+export const STUB_FEE_ESCROW_BYTECODE = '${compiled.StubFeeEscrow.bytecode}' as const;
+
 export const PONS_CURVE_ABI = ${JSON.stringify(compiled.PonsV2BondingCurve.abi)} as const;
 export const PONS_CURVE_BYTECODE = '${compiled.PonsV2BondingCurve.bytecode}' as const;
 export const PONS_CURVE_DEPLOYED_BYTECODE = '${compiled.PonsV2BondingCurve.deployedBytecode}' as const;
 
 export const PONS_TOKEN_ABI = ${JSON.stringify(compiled.PonsV2LauncherToken.abi)} as const;
 export const PONS_TOKEN_BYTECODE = '${compiled.PonsV2LauncherToken.bytecode}' as const;
+
+export const PONS_FACTORY_ABI = ${JSON.stringify(compiled.PonsV2LaunchFactory.abi)} as const;
+export const PONS_FACTORY_BYTECODE = '${compiled.PonsV2LaunchFactory.bytecode}' as const;
+export const PONS_FACTORY_DEPLOYED_BYTECODE = '${compiled.PonsV2LaunchFactory.deployedBytecode}' as const;
+
+export const PONS_LAUNCH_DEPLOYER_ABI = ${JSON.stringify(compiled.PonsV2LaunchDeployer.abi)} as const;
+export const PONS_LAUNCH_DEPLOYER_BYTECODE = '${compiled.PonsV2LaunchDeployer.bytecode}' as const;
+
+export const PONS_HOOK_ABI = ${JSON.stringify(compiled.PonsV2MemeHook.abi)} as const;
+export const PONS_HOOK_BYTECODE = '${compiled.PonsV2MemeHook.bytecode}' as const;
+
+export const PONS_VAULT_ABI = ${JSON.stringify(compiled.PonsV2BuybackVault.abi)} as const;
+export const PONS_VAULT_BYTECODE = '${compiled.PonsV2BuybackVault.bytecode}' as const;
+
+export const PONS_LOCKER_ABI = ${JSON.stringify(compiled.PonsV2LaunchLocker.abi)} as const;
+export const PONS_LOCKER_BYTECODE = '${compiled.PonsV2LaunchLocker.bytecode}' as const;
+
+export const PONS_EXECUTOR_ABI = ${JSON.stringify(compiled.PonsV2GraduationExecutor.abi)} as const;
+export const PONS_EXECUTOR_BYTECODE = '${compiled.PonsV2GraduationExecutor.bytecode}' as const;
 `;
 mkdirSync(path.join(root, 'src'), { recursive: true });
 writeFileSync(path.join(root, 'src', 'contracts.ts'), generated);

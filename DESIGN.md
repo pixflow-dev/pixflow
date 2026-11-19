@@ -178,3 +178,67 @@ NOT guaranteed (stated plainly):
   faucet top-up first) and a mainnet deploy checklist.
 - Production ownership: registry owner → multisig; router owner →
   Ivan's backed-up wallet (owner can only change `feeRecipient`).
+
+## 10. Atomic launch+buy (PROVEN 19 Nov 2026)
+
+One transaction through the router both LAUNCHES a Pons token and
+buys it — `launchAndBuy(params, launchConfigId, pairToken,
+snipeTaxExemptions, minTokensOut)` — so the creator's opening buy
+lands in the launch block, ahead of snipers. Proven in
+`tests/atomic-launch-buy.test.ts` (11 tests) against the REAL vendored
+Pons factory suite in the local VM (Pons is not on RH testnet, so no
+testnet proof is possible): the launch leg deploys a genuine
+factory-registered token+curve pair, the buy leg delivers EXACTLY the
+tax-free amount (verified against a reference curve with identical
+initial reserves), and a non-exempt sniper buying in the same second
+loses ~99% to the snipe tax (the control that shows what the atomic
+buy avoids).
+
+Why it works (all three are Pons design, not luck):
+1. The factory has a dedicated entrypoint for this — `launchTokenFor`,
+   documented as "Launches for the initiating user of the trusted
+   atomic launch-and-buy router". Only the configured `launchForwarder`
+   may call it, and it takes the real initiating user as
+   `originalDeployer` (never `tx.origin`).
+2. The snipe tax is charged on the RECIPIENT, not the caller
+   (`currentSnipeTaxBps(recipient)`), and `launchTokenFor`
+   auto-exempts the originalDeployer (and the creator fee recipient).
+   The buy's recipient is the caller, so it pays no snipe tax even in
+   the launch second — when the tax peaks at 99%.
+3. The launch fee (0.0005 ETH on mainnet, read live) is forwarded
+   exactly; the router's 0.3% fee applies to the BUY leg only.
+
+The canonical decision: a token launched in the same transaction is
+canonical-BY-CONSTRUCTION for that buy only — it did not exist before
+this tx, so there is no clone to confuse it with. The buy leg
+therefore skips the registry canonical check AND the snipe-tax window
+check (a just-launched token is always inside the window), and the
+launch does NOT write to the registry: the keeper must still observe
+the token and register it (with the timelock) before anyone else can
+buy it through `buyVerified`. The skipped window check is backed by a
+defense-in-depth read: the router verifies
+`curve.snipeTaxExempt(caller)` on-chain before buying, so a factory
+behaviour change fails closed with `TaxWindow` instead of executing a
+99% taxed buy. The buy leg shares `_executeBuy` with `buyVerified`
+(same fee, quote, spend cap, balance-delta slippage check, refund) —
+the only difference is which checks gate entry.
+
+Shipping caveat (permissioned dependency): on mainnet the Pons
+factory owner must set this router as `launchForwarder` — the router
+cannot do that for itself, and Pons' own router already offers
+launchAndBuy. Until that is granted, `launchAndBuy` reverts
+`NotLaunchForwarder` on mainnet (proven by test). The feature is
+worth shipping only if that grant is obtained; without it the router
+is buy-only, which is still the core product.
+
+What is real vs stubbed in the proof: factory, launch deployer, meme
+hook, buyback vault, launch locker, graduation executor, graduation
+guard, bonding curve and launcher token are ALL real vendored source
+(the curve still compiles to exactly 10,229 B deployed, matching
+mainnet). Stubbed only: the Uniswap v4 singletons (PoolManager /
+PositionManager / Permit2 — launch never calls them), the fee escrow
+(no implementation vendored; a faithful minimal ledger — launch+buy
+never calls it), and two compile-time shims (`BaseHook`,
+`IAllowanceTransfer` — see their file headers; the hook's swap
+callbacks are out of scope for this proof). Launch terms are the live
+mainnet values (config 0, 0.0005 ETH fee, 9900 bps / 3s snipe tax).

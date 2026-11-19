@@ -13,10 +13,13 @@ and your ETH never leaves your wallet.
 **Status: Fase 2 — keeper + website + console + testnet E2E, all
 verified 19 Nov 2026.** Testnet deploy live on Robinhood testnet
 (46630); testnet E2E 12/12 green, including a real `buyVerified`
-execution with the fee exact to the wei. No mainnet deploy. No token at
-launch. Brand name is Pixflow (chosen 19 Nov 2026, see BRANDING.md);
-logo received from Ivan the same day (white pixel arrow on navy
-`#031045`, `assets/pixflow-logo.png`, used as-is).
+execution with the fee exact to the wei. Atomic launch+buy also proven
+19 Nov 2026 (11 tests against the real Pons factory suite in the local
+VM — see DESIGN.md §10); it needs Pons to set this router as
+`launchForwarder` before it can run on mainnet. No mainnet deploy. No
+token at launch. Brand name is Pixflow (chosen 19 Nov 2026, see
+BRANDING.md); logo received from Ivan the same day (white pixel arrow
+on navy `#031045`, `assets/pixflow-logo.png`, used as-is).
 
 ## How it works
 
@@ -41,6 +44,15 @@ buyVerified(token, minTokensOut) + ETH
 Also: `buyVerifiedBySymbol("DCTY", minTokensOut)` — the registry
 resolves the symbol to its canonical token, then the same flow runs.
 
+And: `launchAndBuy(params, ...)` — launch a Pons token AND buy it in
+ONE transaction, so the creator's opening buy lands in the launch
+block ahead of snipers (the factory auto-exempts the creator from the
+snipe tax; the router verifies the exemption on-chain before buying).
+The 0.3% fee applies to the buy leg only; the 0.0005 ETH launch fee is
+forwarded to the factory exactly. The launch does NOT register the
+token as canonical — the keeper must still observe and register it
+before anyone else can buy it. See DESIGN.md §10.
+
 **Fee: 0.3% (30 bps) on executed buys ONLY.** The fee is a constant in
 the contract (it cannot be raised later), computed on the ETH sent, and
 accrues pull-based (`claimFees()`) so a fee recipient that rejects ETH
@@ -54,8 +66,8 @@ buyer pays the fee; Ivan pays $0.
 | `contracts/VerifiedBuyRouter.sol` | The router: verification + buy execution + 0.3% fee + refunds. |
 | `contracts/CanonicalRegistry.sol` | Keeper-maintained registry: symbol → canonical token + status + flags, with an asymmetric timelock (fail-closed actions immediate, fail-open actions wait 1h). |
 | `contracts/IPonsV2LaunchFactory.sol` | Minimal factory interface (the M-01 trust root). |
-| `contracts/vendor/pons/` | REAL Pons V2 contracts, vendored unmodified from Sourcify (the curve tests run against genuine curve logic, 10,229 bytes deployed — same as mainnet). |
-| `contracts/test/` | Test-only: `PonsFactoryStub` (Pons is not on testnet 46630), `LyingBuyCurve`, `ReentrantBuyer`. |
+| `contracts/vendor/pons/` | REAL Pons V2 contracts, vendored unmodified from Sourcify — the full factory suite (factory, deployer, hook, vault, locker, executor, guard, curve, token) now compiles and runs in the atomic-launch tests; the curve is 10,229 bytes deployed — same as mainnet. |
+| `contracts/test/` | Test-only: `PonsFactoryStub` (Pons is not on testnet 46630), `LyingBuyCurve`, `ReentrantBuyer`, `PonsTestStubs` (PoolManager / PositionManager / Permit2 / FeeEscrow doubles for the atomic-launch tests). |
 
 ## Keeper (Fase 2)
 
@@ -164,18 +176,22 @@ E2E ran on the deployer's remaining ~0.00016 ETH — it fit.
 ```bash
 npm install
 npm run compile:contracts   # solc-js, generates src/contracts.ts
-npm test                    # 113 tests, node:test
+npm test                    # 124 tests, node:test
 npx tsc --noEmit            # typecheck (clean)
 ```
 
-**113/113 pass** — 63 contracts (28 registry + 35 router, on the
+**124/124 pass** — 63 contracts (28 registry + 35 router, on the
 ethereumjs VM) + 50 keeper resolver (29 resolver rules + 21 keeper
-service, incl. the DCTY/MEOW fixtures from DESIGN.md §1). Contract
-coverage includes: happy-path buy math exact to the wei (fee, quote,
-refund), every revert reason, the M-01 fake-curve rejection, the
-balance-delta defense against a lying curve, the spend-cap /
-partial-fill path, the snipe-tax window (both a long window and the
-real 3s window), reentrancy from the refund path, and pull-based fees.
+service, incl. the DCTY/MEOW fixtures from DESIGN.md §1) + 11 atomic
+launch+buy (against the real Pons factory suite in the local VM —
+DESIGN.md §10). Contract coverage includes: happy-path buy math exact
+to the wei (fee, quote, refund), every revert reason, the M-01
+fake-curve rejection, the balance-delta defense against a lying curve,
+the spend-cap / partial-fill path, the snipe-tax window (both a long
+window and the real 3s window), reentrancy from the refund path,
+pull-based fees, and the atomic launch+buy flow (exact tax-free
+amount, launch-fee forwarding, forwarder permission, salt reuse,
+launch/buy atomicity).
 
 Foundry PoCs (`audit/`, forge 1.9.0):
 
@@ -209,8 +225,8 @@ verification of the audited copies.
 
 ```
 contracts/          VerifiedBuyRouter.sol, CanonicalRegistry.sol, IPonsV2LaunchFactory.sol
-contracts/vendor/   Pons V2 sources (unmodified, Sourcify)
-contracts/test/     PonsFactoryStub, LyingBuyCurve, ReentrantBuyer (test-only)
+contracts/vendor/   Pons V2 sources (unmodified, Sourcify) + Uniswap compile shims (BaseHook, IAllowanceTransfer)
+contracts/test/     PonsFactoryStub, LyingBuyCurve, ReentrantBuyer, PonsTestStubs (test-only)
 scripts/            compile-contracts.mjs (solc-js + viaIR, optimizer runs 200)
                     run-keeper.ts (keeper CLI: --once/--watch/--dry-run)
                     deploy-testnet.ts, e2e-testnet.ts (testnet 46630, resumable)
@@ -218,7 +234,7 @@ src/                contracts.ts (GENERATED — do not edit)
                     resolver.ts (canonical/contested rules), keeper.ts (service)
                     chains.ts (RH chain defs), errors.ts
 tests/              vm.ts (ethereumjs harness + time control), router.test.ts, registry.test.ts
-                    resolver.test.ts, keeper.test.ts
+                    resolver.test.ts, keeper.test.ts, atomic-launch-buy.test.ts
 site/               landing + console (static; console.bundle.js built by build-console.mjs)
 data/               GITIGNORED: deployment + E2E state, keeper evidence bundles
 audit/              Foundry PoCs (byte-identical contract copies + mocks)
