@@ -63,15 +63,23 @@ export function parseKeeperArgs(args: string[]): KeeperCliArgs {
   return { once, watch, dryRun };
 }
 
+function normalizePrivateKey(raw: string): Hex {
+  // MetaMask's "show private key" displays the key WITHOUT the 0x prefix,
+  // and viem requires 0x-prefixed hex. Accept both forms (and trim
+  // accidental whitespace) so a pasted key never fails the keeper pass.
+  const trimmed = raw.trim();
+  return (trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`) as Hex;
+}
+
 function readPrivateKey(): Hex | undefined {
-  if (process.env.KEEPER_PRIVATE_KEY) return process.env.KEEPER_PRIVATE_KEY as Hex;
+  if (process.env.KEEPER_PRIVATE_KEY) return normalizePrivateKey(process.env.KEEPER_PRIVATE_KEY);
   const keyFile =
     process.env.KEEPER_KEY_FILE ??
     path.join(process.env.HOME ?? '', 'workspace', 'rycore', 'data', 'testnet-deployer.json');
   if (!existsSync(keyFile)) return undefined;
   const data = JSON.parse(readFileSync(keyFile, 'utf8'));
   if (typeof data.privateKey !== 'string') return undefined;
-  return data.privateKey as Hex;
+  return normalizePrivateKey(data.privateKey);
 }
 
 function readRegistryAddress(): Address {
@@ -174,6 +182,10 @@ async function main() {
         `[${new Date().toISOString()}] keeper pass failed:`,
         err instanceof Error ? err.message : err,
       );
+      // In --once mode a failed pass must fail the process (and the CI run)
+      // — otherwise a green run hides a dead keeper. In --watch mode the
+      // next interval retries, so the process keeps running.
+      if (!watch) process.exit(1);
     }
   }
 
